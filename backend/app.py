@@ -104,8 +104,19 @@ async def chat(request: ChatRequest):
 
 
 @app.get("/weather/{city}")
-async def get_city_weather(city: str):
-    """Direct weather lookup without AI (for quick data)"""
+async def get_city_weather_path(city: str):
+    """Direct weather lookup without AI (for quick data) - path param version"""
+    try:
+        import json
+        result = get_weather(city)
+        return json.loads(result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/weather")
+async def get_city_weather(city: str = "Miami"):
+    """Direct weather lookup without AI - query param version (for Vercel)"""
     try:
         import json
         result = get_weather(city)
@@ -115,8 +126,20 @@ async def get_city_weather(city: str):
 
 
 @app.get("/forecast/{city}")
-async def get_city_forecast(city: str, days: int = 7):
-    """Get weather forecast for a city"""
+async def get_city_forecast_path(city: str, days: int = 7):
+    """Get weather forecast for a city - path param version"""
+    try:
+        import json
+        from weather_agent import get_forecast
+        result = get_forecast(city, days)
+        return json.loads(result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/forecast")
+async def get_city_forecast(city: str = "Miami", days: int = 7):
+    """Get weather forecast for a city - query param version (for Vercel)"""
     try:
         import json
         from weather_agent import get_forecast

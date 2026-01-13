@@ -229,8 +229,8 @@ function App() {
     
     try {
       const [weatherRes, forecastRes] = await Promise.all([
-        fetch(`/api/weather/${encodeURIComponent(city)}`),
-        fetch(`/api/forecast/${encodeURIComponent(city)}?days=7`)
+        fetch(`/api/weather?city=${encodeURIComponent(city)}`),
+        fetch(`/api/forecast?city=${encodeURIComponent(city)}&days=7`)
       ])
       const weatherData = await weatherRes.json()
       const forecastData = await forecastRes.json()
