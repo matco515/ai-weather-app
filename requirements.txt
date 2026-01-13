@@ -1,0 +1,15 @@
+# Amazon Bedrock AgentCore Runtime Workshop
+# Strands Agents SDK
+strands-agents
+strands-agents-tools
+
+# Amazon Bedrock AgentCore SDK
+bedrock-agentcore
+bedrock-agentcore-starter-toolkit
+
+# AWS SDK
+boto3>=1.35.0
+
+# Jupyter support
+ipykernel
+ipython
