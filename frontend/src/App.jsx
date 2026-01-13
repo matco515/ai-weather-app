@@ -246,9 +246,9 @@ function App() {
       const forecastDays = (daily.time || []).map((date, i) => ({
         date,
         condition: weatherCodes[daily.weather_code?.[i]] || "Unknown",
-        high: Math.round(daily.temperature_2m_max?.[i] || 0),
-        low: Math.round(daily.temperature_2m_min?.[i] || 0),
-        rain_chance: daily.precipitation_probability_max?.[i] || 0,
+        high_f: Math.round(daily.temperature_2m_max?.[i] || 0),
+        low_f: Math.round(daily.temperature_2m_min?.[i] || 0),
+        precipitation_chance: daily.precipitation_probability_max?.[i] || 0,
         sunrise: daily.sunrise?.[i] || '',
         sunset: daily.sunset?.[i] || ''
       }))
