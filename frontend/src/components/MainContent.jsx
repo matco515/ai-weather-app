@@ -55,9 +55,15 @@ const MainContent = ({ weather, forecast, loading, onSearch, selectedDay, setSel
     if (value.length >= 2) {
       debounceRef.current = setTimeout(async () => {
         try {
-          const res = await fetch(`/api/geocode?query=${encodeURIComponent(value)}`)
+          const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(value)}&count=5&language=en&format=json`)
           const data = await res.json()
-          setSuggestions(data.suggestions || [])
+          // Open-Meteo returns "results" array
+          const results = (data.results || []).map(r => ({
+            name: r.name,
+            country: r.country,
+            admin1: r.admin1 || ''
+          }))
+          setSuggestions(results)
           setShowSuggestions(true)
         } catch (e) {
           console.error('Geocode error:', e)

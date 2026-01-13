@@ -155,13 +155,8 @@ function App() {
   }, [])
 
   const checkBedrockConnection = async () => {
-    try {
-      const res = await fetch('/api/health')
-      const data = await res.json()
-      setBedrockConnected(data.bedrock_connected === true)
-    } catch (e) {
-      setBedrockConnected(false)
-    }
+    // On Vercel, we don't have Bedrock - just show as demo mode
+    setBedrockConnected(false)
   }
 
   useEffect(() => {
@@ -182,42 +177,9 @@ function App() {
   // Fetch weather-appropriate location photo from Unsplash
   const fetchPlacePhoto = async (city, weatherCondition = null, isNight = false) => {
     // Reset photo state
+    // Using curated weather-based backgrounds (Unsplash API requires backend proxy for CORS)
     setPlacePhoto(null)
     setPhotoAttribution(null)
-    
-    if (!UNSPLASH_ACCESS_KEY) {
-      console.log('No Unsplash API key - using weather-based backgrounds')
-      return
-    }
-    
-    // Don't fetch Unsplash for storm/overcast/rain - use our curated dramatic images
-    const weatherType = getWeatherType(weatherCondition || '')
-    if (['storm', 'overcast', 'rain'].includes(weatherType)) {
-      console.log(`Using curated ${weatherType} background for dramatic effect`)
-      return
-    }
-    
-    try {
-      const params = new URLSearchParams({
-        api_key: UNSPLASH_ACCESS_KEY,
-        weather: weatherType,
-        is_night: isNight.toString()
-      })
-      
-      const response = await fetch(`/api/unsplash-photo/${encodeURIComponent(city)}?${params}`)
-      const data = await response.json()
-      
-      if (data.photo_url) {
-        setPlacePhoto(data.photo_url)
-        setPhotoAttribution(data.attribution?.map(attr => ({
-          ...attr,
-          source: 'unsplash'
-        })))
-        console.log(`Unsplash: "${data.search_query}" → ${data.description || 'photo found'}`)
-      }
-    } catch (error) {
-      console.error('Unsplash photo error:', error)
-    }
   }
 
   const searchCity = async (city) => {
@@ -228,12 +190,86 @@ function App() {
     setPlacePhoto(null) // Reset photo while loading
     
     try {
+      // First geocode the city using Open-Meteo (works directly from browser)
+      const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`)
+      const geoData = await geoRes.json()
+      
+      if (!geoData.results?.[0]) {
+        console.error('City not found')
+        setLoading(false)
+        return
+      }
+      
+      const location = geoData.results[0]
+      const { latitude, longitude, name, country } = location
+      
+      // Fetch weather and forecast directly from Open-Meteo
+      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`
+      const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,wind_speed_10m,weather_code&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=7`
+      
       const [weatherRes, forecastRes] = await Promise.all([
-        fetch(`/api/weather?city=${encodeURIComponent(city)}`),
-        fetch(`/api/forecast?city=${encodeURIComponent(city)}&days=7`)
+        fetch(weatherUrl),
+        fetch(forecastUrl)
       ])
-      const weatherData = await weatherRes.json()
-      const forecastData = await forecastRes.json()
+      
+      const rawWeather = await weatherRes.json()
+      const rawForecast = await forecastRes.json()
+      
+      // Map weather codes to conditions
+      const weatherCodes = {
+        0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
+        45: "Foggy", 48: "Depositing rime fog",
+        51: "Light drizzle", 53: "Moderate drizzle", 55: "Dense drizzle",
+        61: "Slight rain", 63: "Moderate rain", 65: "Heavy rain",
+        71: "Slight snow", 73: "Moderate snow", 75: "Heavy snow",
+        80: "Slight rain showers", 81: "Moderate rain showers", 82: "Violent rain showers",
+        95: "Thunderstorm", 96: "Thunderstorm with slight hail", 99: "Thunderstorm with heavy hail"
+      }
+      
+      const current = rawWeather.current || {}
+      const weatherData = {
+        city: name,
+        country: country,
+        temperature: Math.round(current.temperature_2m || 0),
+        humidity: current.relative_humidity_2m || 0,
+        feels_like: Math.round(current.apparent_temperature || 0),
+        wind_speed: Math.round(current.wind_speed_10m || 0),
+        condition: weatherCodes[current.weather_code] || "Unknown",
+        latitude,
+        longitude
+      }
+      
+      // Process daily forecast
+      const daily = rawForecast.daily || {}
+      const hourly = rawForecast.hourly || {}
+      
+      const forecastDays = (daily.time || []).map((date, i) => ({
+        date,
+        condition: weatherCodes[daily.weather_code?.[i]] || "Unknown",
+        high: Math.round(daily.temperature_2m_max?.[i] || 0),
+        low: Math.round(daily.temperature_2m_min?.[i] || 0),
+        rain_chance: daily.precipitation_probability_max?.[i] || 0,
+        sunrise: daily.sunrise?.[i] || '',
+        sunset: daily.sunset?.[i] || ''
+      }))
+      
+      // Process hourly data (next 24 hours)
+      const hourlyData = (hourly.time || []).slice(0, 24).map((time, i) => ({
+        time,
+        temperature: Math.round(hourly.temperature_2m?.[i] || 0),
+        feels_like: Math.round(hourly.apparent_temperature?.[i] || 0),
+        humidity: hourly.relative_humidity_2m?.[i] || 0,
+        wind_speed: Math.round(hourly.wind_speed_10m?.[i] || 0),
+        rain_chance: hourly.precipitation_probability?.[i] || 0,
+        condition: weatherCodes[hourly.weather_code?.[i]] || "Unknown"
+      }))
+      
+      const forecastData = {
+        city: name,
+        country,
+        forecast: forecastDays,
+        hourly: hourlyData
+      }
       
       if (weatherData.city) {
         setWeather(weatherData)
