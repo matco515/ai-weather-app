@@ -230,9 +230,9 @@ function App() {
       const weatherData = {
         city: name,
         country: country,
-        temperature: Math.round(current.temperature_2m || 0),
+        temperature_f: Math.round(current.temperature_2m || 0),
         humidity: current.relative_humidity_2m || 0,
-        feels_like: Math.round(current.apparent_temperature || 0),
+        feels_like_f: Math.round(current.apparent_temperature || 0),
         wind_speed: Math.round(current.wind_speed_10m || 0),
         condition: weatherCodes[current.weather_code] || "Unknown",
         latitude,
@@ -286,7 +286,9 @@ function App() {
         fetchPlacePhoto(city, weatherData.condition, isNight)
       }
       if (forecastData.forecast) setForecast(forecastData)
-    } catch (e) { console.error(e) }
+    } catch (e) { 
+      console.error('Weather fetch error:', e) 
+    }
     setLoading(false)
   }
 
@@ -315,7 +317,7 @@ function App() {
       currentWeatherType,
       isPlacePhoto: canUsePlacePhoto,
     }
-  }, [weather, forecast, weatherType, stormDemo, placePhoto])
+  }, [weather, forecast, stormDemo, weatherType, placePhoto])
 
   const isStormy = stormDemo || weatherType === 'storm' || weatherType === 'rain'
   const isSnowy = weatherType === 'snow'
