@@ -253,22 +253,29 @@ function App() {
         sunset: daily.sunset?.[i] || ''
       }))
       
-      // Process hourly data (next 24 hours)
-      const hourlyData = (hourly.time || []).slice(0, 24).map((time, i) => ({
+      // Process ALL hourly data (for 7 days = 168 hours)
+      const allHourlyData = (hourly.time || []).map((time, i) => ({
         time,
-        temperature: Math.round(hourly.temperature_2m?.[i] || 0),
-        feels_like: Math.round(hourly.apparent_temperature?.[i] || 0),
+        temp_f: Math.round(hourly.temperature_2m?.[i] || 0),
+        feels_like_f: Math.round(hourly.apparent_temperature?.[i] || 0),
         humidity: hourly.relative_humidity_2m?.[i] || 0,
-        wind_speed: Math.round(hourly.wind_speed_10m?.[i] || 0),
+        wind_mph: Math.round(hourly.wind_speed_10m?.[i] || 0),
         rain_chance: hourly.precipitation_probability?.[i] || 0,
         condition: weatherCodes[hourly.weather_code?.[i]] || "Unknown"
       }))
       
+      // Attach hourly data to each forecast day (24 hours per day)
+      const forecastWithHourly = forecastDays.map((day, dayIndex) => {
+        const startHour = dayIndex * 24
+        const dayHourly = allHourlyData.slice(startHour, startHour + 24)
+        return { ...day, hourly: dayHourly }
+      })
+      
       const forecastData = {
         city: name,
         country,
-        forecast: forecastDays,
-        hourly: hourlyData
+        forecast: forecastWithHourly,
+        hourly: allHourlyData.slice(0, 24) // Keep top-level hourly for backwards compat
       }
       
       if (weatherData.city) {
